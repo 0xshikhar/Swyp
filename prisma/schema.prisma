@@ -13,19 +13,351 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
+// User model for basic authentication
 model User {
   id            String    @id @default(cuid())
   walletAddress String    @unique
   createdAt     DateTime  @default(now())
   lastLoginAt   DateTime? @updatedAt
 
-   // User profile information
+  // User profile information
   username     String?   @unique
   avatar       String?   // IPFS hash or URL
   bio          String?
-  NFTid      String?
+  NFTid        String?
+
+  // Relations
+  merchants    Merchant[]
+  payments     Payment[]   @relation("CustomerPayments")
 
   @@index([walletAddress])
+}
+
+// Merchant model for business accounts
+model Merchant {
+  id                String            @id @default(cuid())
+  userId            String
+  businessName      String            @unique
+  category          String
+  website           String?
+  email             String?
+  description       String?
+  logo              String?           // IPFS hash or URL
+  
+  // Business verification
+  status            MerchantStatus    @default(PENDING)
+  verificationDate  DateTime?
+  riskScore         Int               @default(0) // 0-100
+  
+  // Payment configuration
+  preferredChainId  Int?              // Preferred chain for rebalancing
+  rebalanceThreshold Decimal          @default(1000) // Minimum amount to trigger rebalancing
+  autoRebalance     Boolean           @default(false)
+  
+  // Statistics
+  totalTransactions Int               @default(0)
+  totalVolume       Decimal           @default(0)
+  
+  // Timestamps
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentAddresses  PaymentAddress[]
+  payments          Payment[]         @relation("MerchantPayments")
+  balances          MerchantBalance[]
+  rebalanceRules    RebalanceRule[]
+  webhooks          Webhook[]
+  apiKeys           ApiKey[]
+  
+  @@index([userId])
+  @@index([businessName])
+  @@index([status])
+  @@index([category])
+}
+
+// Multi-chain payment addresses for merchants
+model PaymentAddress {
+  id          String   @id @default(cuid())
+  merchantId  String
+  chainId     Int
+  address     String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  
+  @@unique([merchantId, chainId])
+  @@index([chainId])
+}
+
+// Payment transactions
+model Payment {
+  id                String        @id @default(cuid())
+  paymentId         String        @unique // On-chain payment ID
+  
+  // Parties
+  customerId        String
+  merchantId        String
+  
+  // Payment details
+  amount            Decimal
+  currency          String        @default("USDC")
+  platformFee       Decimal       @default(0)
+  
+  // Chain information
+  sourceChainId     Int
+  destinationChainId Int
+  
+  // Transaction hashes
+  sourceTxHash      String?
+  destinationTxHash String?
+  cctpMessageHash   String?       // CCTP message hash
+  
+  // Status and metadata
+  status            PaymentStatus @default(PENDING)
+  failureReason     String?
+  isRebalanced      Boolean       @default(false)
+  
+  // Timestamps
+  createdAt         DateTime      @default(now())
+  completedAt       DateTime?
+  updatedAt         DateTime      @updatedAt
+  
+  // Relations
+  customer          User          @relation("CustomerPayments", fields: [customerId], references: [id])
+  merchant          Merchant      @relation("MerchantPayments", fields: [merchantId], references: [id])
+  rebalanceEvents   RebalanceEvent[]
+  
+  @@index([customerId])
+  @@index([merchantId])
+  @@index([status])
+  @@index([sourceChainId])
+  @@index([destinationChainId])
+  @@index([createdAt])
+}
+
+// Merchant balances across different chains
+model MerchantBalance {
+  id          String   @id @default(cuid())
+  merchantId  String
+  chainId     Int
+  balance     Decimal  @default(0)
+  pendingIn   Decimal  @default(0)  // Incoming pending balance
+  pendingOut  Decimal  @default(0)  // Outgoing pending balance
+  lastUpdated DateTime @updatedAt
+  
+  // Relations
+  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  
+  @@unique([merchantId, chainId])
+  @@index([merchantId])
+  @@index([chainId])
+}
+
+// Rebalancing rules and configuration
+model RebalanceRule {
+  id              String   @id @default(cuid())
+  merchantId      String
+  
+  // Rule configuration
+  sourceChainId   Int
+  targetChainId   Int
+  threshold       Decimal  // Minimum amount to trigger rebalance
+  percentage      Int      @default(100) // Percentage to rebalance (1-100)
+  isActive        Boolean  @default(true)
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  merchant        Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  
+  @@unique([merchantId, sourceChainId, targetChainId])
+  @@index([merchantId])
+}
+
+// Rebalancing events and history
+model RebalanceEvent {
+  id              String           @id @default(cuid())
+  merchantId      String
+  paymentId       String?
+  
+  // Rebalance details
+  sourceChainId   Int
+  targetChainId   Int
+  amount          Decimal
+  
+  // Transaction details
+  sourceTxHash    String?
+  targetTxHash    String?
+  cctpMessageHash String?
+  
+  // Status
+  status          RebalanceStatus  @default(PENDING)
+  failureReason   String?
+  
+  // Timestamps
+  createdAt       DateTime         @default(now())
+  completedAt     DateTime?
+  updatedAt       DateTime         @updatedAt
+  
+  // Relations
+  payment         Payment?         @relation(fields: [paymentId], references: [id])
+  
+  @@index([merchantId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Webhook endpoints for merchants
+model Webhook {
+  id          String      @id @default(cuid())
+  merchantId  String
+  url         String
+  events      String[]    // Array of event types to listen for
+  secret      String      // Webhook secret for verification
+  isActive    Boolean     @default(true)
+  
+  // Statistics
+  totalCalls  Int         @default(0)
+  successCalls Int        @default(0)
+  lastCall    DateTime?
+  
+  // Timestamps
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  merchant    Merchant    @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  deliveries  WebhookDelivery[]
+  
+  @@index([merchantId])
+}
+
+// Webhook delivery attempts
+model WebhookDelivery {
+  id          String   @id @default(cuid())
+  webhookId   String
+  eventType   String
+  payload     Json
+  
+  // Delivery details
+  status      WebhookStatus @default(PENDING)
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  nextRetry   DateTime?
+  
+  // Response details
+  responseCode Int?
+  responseBody String?
+  errorMessage String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  deliveredAt DateTime?
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  webhook     Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  
+  @@index([webhookId])
+  @@index([status])
+  @@index([nextRetry])
+}
+
+// API keys for merchant integration
+model ApiKey {
+  id          String   @id @default(cuid())
+  merchantId  String
+  name        String   // Human-readable name
+  keyHash     String   @unique // Hashed API key
+  permissions String[] // Array of permissions
+  
+  // Usage tracking
+  lastUsed    DateTime?
+  totalCalls  Int      @default(0)
+  
+  // Status
+  isActive    Boolean  @default(true)
+  expiresAt   DateTime?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  
+  @@index([merchantId])
+  @@index([keyHash])
+}
+
+// Supported blockchain networks
+model SupportedChain {
+  id              Int      @id
+  name            String   @unique
+  symbol          String
+  rpcUrl          String
+  explorerUrl     String
+  
+  // CCTP configuration
+  cctpDomain      Int?     @unique
+  tokenMessenger  String?  // Token Messenger contract address
+  messageTransmitter String? // Message Transmitter contract address
+  usdcAddress     String?  // USDC token contract address
+  
+  // Status
+  isActive        Boolean  @default(true)
+  isTestnet       Boolean  @default(false)
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([isActive])
+  @@index([isTestnet])
+}
+
+// Platform configuration and settings
+model PlatformConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+// Enums
+enum MerchantStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum RebalanceStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum WebhookStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  RETRYING
 }
 
