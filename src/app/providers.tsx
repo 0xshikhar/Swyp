@@ -11,19 +11,25 @@ import 'dotenv/config';
 
 import {
     mainnet,
-    sepolia
+    sepolia,
+    polygon,
+    polygonMumbai,
+    base,
+    baseSepolia
 } from 'wagmi/chains';
-import { agentChain } from '@/lib/customChain';
 import { createConfig } from 'wagmi';
 import { http } from 'viem';
 
-// Configure wagmi client
+// Configure wagmi client with payment gateway chains
 const config = createConfig({
-    chains: [mainnet, sepolia, agentChain],
+    chains: [mainnet, polygon, base, sepolia, polygonMumbai, baseSepolia],
     transports: {
         [mainnet.id]: http(),
+        [polygon.id]: http(),
+        [base.id]: http(),
         [sepolia.id]: http(),
-        [agentChain.id]: http(),
+        [polygonMumbai.id]: http(),
+        [baseSepolia.id]: http(),
     },
 });
 
@@ -42,14 +48,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
                 <PrivyProvider
                     appId={PRIVY_APP_ID}
                     config={{
-                        loginMethods: ['wallet', 'email', 'google'],
+                        loginMethods: ['wallet'],
                         appearance: {
                             theme: 'light',
                             accentColor: '#3B82F6',
+                            logo: '/favicon.ico',
                         },
                         embeddedWallets: {
                             createOnLogin: 'users-without-wallets',
+                            requireUserPasswordOnCreate: false,
                         },
+                        supportedChains: [mainnet, polygon, base, sepolia, polygonMumbai, baseSepolia],
                     }}
                 >
                     {mounted ? (

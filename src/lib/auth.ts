@@ -1,6 +1,7 @@
 import { generateNonce, SiweMessage } from 'siwe';
-// import { prisma } from './prisma';
+import { prisma } from './prisma';
 import jwt from 'jsonwebtoken';
+import { NextRequest } from 'next/server';
 
 export async function createAuthMessage(address: string, chainId: number) {
     const nonce = generateNonce();
@@ -29,6 +30,16 @@ export interface JwtPayload {
     address: string;
     iat?: number;
     exp?: number;
+}
+
+export interface AuthUser {
+    id: string;
+    walletAddress: string;
+    username?: string;
+    bio?: string;
+    avatar?: string;
+    createdAt: Date;
+    lastLoginAt: Date;
 }
 
 // Generate a JWT token
@@ -78,4 +89,94 @@ export function debugJwtToken(token: string): { valid: boolean; payload?: JwtPay
             error: error instanceof Error ? error.message : 'Unknown error'
         };
     }
+}
+
+// Extract token from request headers
+export function extractToken(request: NextRequest): string | null {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return null;
+    }
+    return authHeader.substring(7);
+}
+
+// Get or create user
+export async function getOrCreateUser(walletAddress: string): Promise<AuthUser> {
+    const existingUser = await prisma.user.findUnique({
+        where: { walletAddress: walletAddress.toLowerCase() },
+    });
+
+    if (existingUser) {
+        // Update last login
+        const updatedUser = await prisma.user.update({
+            where: { id: existingUser.id },
+            data: { lastLoginAt: new Date() },
+        });
+        return updatedUser;
+    }
+
+    // Create new user
+    const newUser = await prisma.user.create({
+        data: {
+            walletAddress: walletAddress.toLowerCase(),
+            lastLoginAt: new Date(),
+        },
+    });
+
+    return newUser;
+}
+
+// Middleware to authenticate requests
+export async function authenticateRequest(request: NextRequest): Promise<AuthUser | null> {
+    const token = extractToken(request);
+    if (!token) {
+        return null;
+    }
+
+    try {
+        const payload = await verifyJwtToken(token);
+        const user = await prisma.user.findUnique({
+            where: { id: payload.userId },
+        });
+        return user;
+    } catch (error) {
+        console.error('Failed to authenticate request:', error);
+        return null;
+    }
+}
+
+// Store nonce temporarily (in production, use Redis or similar)
+const nonceStore = new Map<string, { nonce: string; timestamp: number }>();
+
+export function storeNonce(address: string, nonce: string): void {
+    nonceStore.set(address.toLowerCase(), {
+        nonce,
+        timestamp: Date.now(),
+    });
+    
+    // Clean up old nonces (older than 10 minutes)
+    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+    Array.from(nonceStore.entries()).forEach(([key, value]) => {
+        if (value.timestamp < tenMinutesAgo) {
+            nonceStore.delete(key);
+        }
+    });
+}
+
+export function getNonce(address: string): string | null {
+    const stored = nonceStore.get(address.toLowerCase());
+    if (!stored) return null;
+    
+    // Check if nonce is still valid (10 minutes)
+    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+    if (stored.timestamp < tenMinutesAgo) {
+        nonceStore.delete(address.toLowerCase());
+        return null;
+    }
+    
+    return stored.nonce;
+}
+
+export function removeNonce(address: string): void {
+    nonceStore.delete(address.toLowerCase());
 }

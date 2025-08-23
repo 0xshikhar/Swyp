@@ -91,10 +91,8 @@ const config = {
     			'accordion-up': 'accordion-up 0.2s ease-out'
     		},
     		backgroundImage: {
-    			'grid-pattern': 'url('/grid.svg',
-    			',': ',',
-    			'url(': ',
-    			'/grid-light.svg': '
+    			'grid-pattern': 'url("/grid.svg")',
+    			'grid-light': 'url("/grid-light.svg")'
     		}
     	}
     },
