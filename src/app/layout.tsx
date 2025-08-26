@@ -6,7 +6,6 @@ import { siteConfig } from "@/config/site"
 import { cn } from "@/lib/utils"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Providers } from "@/app/providers"
-import Navbar from "@/components/navigation/navbar"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -81,7 +80,6 @@ export default function RootLayout({ children }: RootLayoutProps) {
           disableTransitionOnChange
         >
           <Providers>
-            <Navbar />
             <main className="flex-1">
               {children}
             </main>

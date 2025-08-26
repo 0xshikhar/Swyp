@@ -18,7 +18,8 @@ import {
   Bell,
   User,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Link as LinkIcon
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -45,6 +46,11 @@ const navigation = [
     name: "Payments",
     href: "/dashboard/payments",
     icon: CreditCard,
+  },
+  {
+    name: "Payment Links",
+    href: "/dashboard/payment-links",
+    icon: LinkIcon,
   },
   {
     name: "Analytics",
