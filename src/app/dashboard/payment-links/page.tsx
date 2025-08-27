@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,15 +93,16 @@ type PaymentLinkStatus = 'all' | 'active' | 'expired' | 'completed';
 
 export default function PaymentLinksPage() {
   const [paymentLinks, setPaymentLinks] = useState(mockPaymentLinks);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<PaymentLinkStatus>('all');
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [baseUrl, setBaseUrl] = useState('');
 
   const filteredLinks = paymentLinks.filter(link => {
     const matchesSearch = 
-      link.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      link.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      link.metadata.orderId?.toLowerCase().includes(searchQuery.toLowerCase());
+      link.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      link.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      link.metadata.orderId?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || link.status === statusFilter;
     
@@ -127,8 +128,16 @@ export default function PaymentLinksPage() {
     toast.success('Copied to clipboard');
   };
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setBaseUrl(window.location.origin);
+    } else {
+      setBaseUrl(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    }
+  }, []);
+
   const getPaymentLinkUrl = (linkId: string) => {
-    return `${window.location.origin}/checkout/${linkId}`;
+    return `${baseUrl}/checkout/${linkId}`;
   };
 
   const handleDeleteLink = (linkId: string) => {
@@ -139,7 +148,7 @@ export default function PaymentLinksPage() {
   };
 
   const handlePaymentLinkCreated = (link: string) => {
-    setShowCreateForm(false);
+    setShowCreateModal(false);
     // Refresh the list or add the new link
     toast.success('Payment link created and added to your list');
   };
@@ -151,7 +160,7 @@ export default function PaymentLinksPage() {
     totalRevenue: paymentLinks.reduce((sum, l) => sum + l.totalPaid, 0)
   };
 
-  if (showCreateForm) {
+  if (showCreateModal) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -163,7 +172,7 @@ export default function PaymentLinksPage() {
           </div>
           <Button 
             variant="outline" 
-            onClick={() => setShowCreateForm(false)}
+            onClick={() => setShowCreateModal(false)}
           >
             Back to Payment Links
           </Button>
@@ -184,7 +193,7 @@ export default function PaymentLinksPage() {
             Create and manage payment links for your customers
           </p>
         </div>
-        <Button onClick={() => setShowCreateForm(true)}>
+        <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Create Payment Link
         </Button>
@@ -252,8 +261,8 @@ export default function PaymentLinksPage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search payment links..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
               </div>
@@ -375,11 +384,11 @@ export default function PaymentLinksPage() {
           {filteredLinks.length === 0 && (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No payment links found</p>
-              {searchQuery || statusFilter !== 'all' ? (
+              {searchTerm || statusFilter !== 'all' ? (
                 <Button 
                   variant="outline" 
                   onClick={() => {
-                    setSearchQuery('');
+                    setSearchTerm('');
                     setStatusFilter('all');
                   }}
                   className="mt-2"
@@ -388,7 +397,7 @@ export default function PaymentLinksPage() {
                 </Button>
               ) : (
                 <Button 
-                  onClick={() => setShowCreateForm(true)}
+                  onClick={() => setShowCreateModal(true)}
                   className="mt-2"
                 >
                   <Plus className="h-4 w-4 mr-2" />

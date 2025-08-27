@@ -5,7 +5,15 @@ import { verifyJwtToken } from '@/lib/auth';
 const protectedPaths = [
     '/api/protected',
     '/api/user',
+    '/api/users/profile',
     '/api/auth/validate',
+    '/api/merchant',
+    '/api/payments',
+    '/api/payment-links',
+    '/api/analytics',
+    '/api/dashboard',
+    '/api/webhooks',
+    '/api/transactions',
     // Add other protected API routes
 ];
 
@@ -70,4 +78,4 @@ export default async function middleware(request: NextRequest) {
 // Configure middleware to run only on API routes
 export const config = {
     matcher: '/api/:path*',
-}; 
+};
