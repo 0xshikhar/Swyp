@@ -9,11 +9,11 @@ import { toast } from 'sonner';
 export interface User {
     id: string;
     walletAddress: string;
-    username?: string;
-    avatar?: string;
-    bio?: string;
+    username: string | null;
+    avatar: string | null;
+    bio: string | null;
     createdAt: string;
-    lastLoginAt: string;
+    lastLoginAt: string | null;
 }
 
 export function useAuth() {

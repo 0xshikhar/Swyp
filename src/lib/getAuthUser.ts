@@ -1,9 +1,5 @@
 import { headers } from 'next/headers';
-
-export interface AuthUser {
-    userId: string;
-    address: string;
-}
+import { AuthUser } from './auth';
 
 export function getAuthUser(): AuthUser | null {
     const headersList = headers();
@@ -14,5 +10,13 @@ export function getAuthUser(): AuthUser | null {
         return null;
     }
 
-    return { userId, address };
-} 
+    return {
+        id: userId,
+        walletAddress: address,
+        username: null,
+        bio: null,
+        avatar: null,
+        createdAt: new Date(),
+        lastLoginAt: null
+    };
+}

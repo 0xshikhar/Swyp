@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
     try {
         const userData = await prisma.user.findUnique({
-            where: { id: user.userId },
+            where: { id: user.id },
             select: {
                 id: true,
                 walletAddress: true,
@@ -30,4 +30,4 @@ export async function GET(request: NextRequest) {
         console.error('Error validating token:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-} 
+}

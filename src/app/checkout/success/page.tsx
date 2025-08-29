@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { USDCAmount } from '@/components/ui/usdc-amount';
 import { ChainBadge } from '@/components/ui/chain-badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { 
-  CheckCircle, 
+import {
+  CheckCircle,
   ExternalLink,
   Copy,
   ArrowLeft,
@@ -34,11 +34,11 @@ const mockPaymentData = {
   }
 };
 
-export default function CheckoutSuccessPage() {
+function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const paymentId = searchParams.get('payment_id');
   const txHash = searchParams.get('tx_hash');
-  
+
   const [paymentData, setPaymentData] = useState(mockPaymentData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,15 +51,15 @@ export default function CheckoutSuccessPage() {
         // TODO: Replace with actual API call
         // const response = await fetch(`/api/payments/${paymentId}`);
         // const data = await response.json();
-        
+
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         // Use txHash from URL if available
         if (txHash) {
           setPaymentData(prev => ({ ...prev, txHash }));
         }
-        
+
         setPaymentData(mockPaymentData);
       } catch (err) {
         setError('Failed to load payment confirmation');
@@ -156,17 +156,17 @@ export default function CheckoutSuccessPage() {
                 </div>
               </div>
             </div>
-            
+
             <div>
               <label className="text-sm font-medium text-muted-foreground">Merchant</label>
               <p className="mt-1 font-medium">{paymentData.merchantName}</p>
             </div>
-            
+
             <div>
               <label className="text-sm font-medium text-muted-foreground">Description</label>
               <p className="mt-1">{paymentData.description}</p>
             </div>
-            
+
             {paymentData.metadata.orderId && (
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Order ID</label>
@@ -174,8 +174,8 @@ export default function CheckoutSuccessPage() {
                   <code className="text-sm bg-muted px-2 py-1 rounded">
                     {paymentData.metadata.orderId}
                   </code>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="sm"
                     onClick={() => copyToClipboard(paymentData.metadata.orderId)}
                   >
@@ -202,8 +202,8 @@ export default function CheckoutSuccessPage() {
                 <code className="text-sm bg-muted px-2 py-1 rounded flex-1">
                   {paymentData.id}
                 </code>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={() => copyToClipboard(paymentData.id)}
                 >
@@ -211,26 +211,26 @@ export default function CheckoutSuccessPage() {
                 </Button>
               </div>
             </div>
-            
+
             <div>
               <label className="text-sm font-medium text-muted-foreground">Transaction Hash</label>
               <div className="mt-1 flex items-center gap-2">
                 <code className="text-sm bg-muted px-2 py-1 rounded flex-1 truncate">
                   {paymentData.txHash}
                 </code>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={() => copyToClipboard(paymentData.txHash)}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   asChild
                 >
-                  <a 
+                  <a
                     href={getExplorerUrl(paymentData.txHash)}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -240,9 +240,9 @@ export default function CheckoutSuccessPage() {
                 </Button>
               </div>
             </div>
-            
+
             <div className="pt-4 border-t">
-              <Button 
+              <Button
                 onClick={downloadReceipt}
                 variant="outline"
                 className="w-full"
@@ -257,7 +257,7 @@ export default function CheckoutSuccessPage() {
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-4">
           <Button asChild className="flex-1">
-            <a 
+            <a
               href={getExplorerUrl(paymentData.txHash)}
               target="_blank"
               rel="noopener noreferrer"
@@ -281,5 +281,13 @@ export default function CheckoutSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <CheckoutSuccessContent />
+    </Suspense>
   );
 }

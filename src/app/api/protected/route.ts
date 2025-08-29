@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     try {
         // Example: Get user data from database
         const userData = await prisma.user.findUnique({
-            where: { id: user.userId }
+            where: { id: user.id }
         });
 
         if (!userData) {
@@ -37,4 +37,4 @@ export async function GET(request: NextRequest) {
             { status: 500 }
         );
     }
-} 
+}
