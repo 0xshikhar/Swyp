@@ -23,6 +23,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
 interface PaymentLinkData {
   amount: string;
@@ -42,6 +43,7 @@ interface CreatePaymentLinkProps {
 }
 
 export function CreatePaymentLink({ onPaymentLinkCreated }: CreatePaymentLinkProps) {
+  const { getAccessToken } = useAuth();
   const [formData, setFormData] = useState<PaymentLinkData>({
     amount: '',
     description: '',
@@ -49,6 +51,23 @@ export function CreatePaymentLink({ onPaymentLinkCreated }: CreatePaymentLinkPro
     expiresIn: '24h',
     metadata: {}
   });
+
+  const calculateExpirationDate = (expiresIn: string): string | null => {
+    if (!expiresIn) return null;
+    
+    const now = new Date();
+    const timeMap: { [key: string]: number } = {
+      '1h': 1 * 60 * 60 * 1000,
+      '24h': 24 * 60 * 60 * 1000,
+      '7d': 7 * 24 * 60 * 60 * 1000,
+      '30d': 30 * 24 * 60 * 60 * 1000,
+    };
+    
+    const milliseconds = timeMap[expiresIn];
+    if (!milliseconds) return null;
+    
+    return new Date(now.getTime() + milliseconds).toISOString();
+  };
   
   const [isCreating, setIsCreating] = useState(false);
   const [createdLink, setCreatedLink] = useState<string | null>(null);
@@ -100,25 +119,44 @@ export function CreatePaymentLink({ onPaymentLinkCreated }: CreatePaymentLinkPro
     setIsCreating(true);
     
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/payment-links', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData)
-      // });
-      // const data = await response.json();
+      // Get JWT token using the useAuth hook
+      const token = await getAccessToken();
+        if (!token) {
+            throw new Error('Authentication required');
+        }
+
+      const response = await fetch('/api/payment-links', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+           amount: formData.amount,
+           description: formData.description,
+           chainId: formData.chainId,
+           expiresAt: calculateExpirationDate(formData.expiresIn),
+         }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create payment link');
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create payment link');
+      }
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const mockLinkId = 'pay_link_' + Math.random().toString(36).substring(2, 15);
-      const paymentLink = `${window.location.origin}/checkout/${mockLinkId}`;
-      
+      const paymentLink = `${window.location.origin}/checkout/${result.data.id}`;
       setCreatedLink(paymentLink);
       onPaymentLinkCreated?.(paymentLink);
       toast.success('Payment link created successfully!');
     } catch (error) {
-      toast.error('Failed to create payment link');
+      console.error('Error creating payment link:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create payment link. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setIsCreating(false);
     }

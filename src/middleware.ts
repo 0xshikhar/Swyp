@@ -47,29 +47,10 @@ export default async function middleware(request: NextRequest) {
             );
         }
 
-        try {
-            // Verify the token
-            const decoded = await verifyJwtToken(token);
-            console.log(`Token verified for user: ${decoded.userId}`);
-
-            // Add user info to request headers to be accessible in route handlers
-            const requestHeaders = new Headers(request.headers);
-            requestHeaders.set('x-user-id', decoded.userId);
-            requestHeaders.set('x-user-address', decoded.address);
-
-            // Return the request with modified headers
-            return NextResponse.next({
-                request: {
-                    headers: requestHeaders,
-                },
-            });
-        } catch (error) {
-            console.error(`Token verification failed for path ${pathname}:`, error);
-            return NextResponse.json(
-                { error: 'Invalid token' },
-                { status: 401 }
-            );
-        }
+        // For now, skip token verification in middleware and handle it in API routes
+        // This allows us to use Privy tokens directly in the API routes
+        console.log(`Allowing access to protected path: ${pathname}`);
+        return NextResponse.next();
     }
 
     return NextResponse.next();

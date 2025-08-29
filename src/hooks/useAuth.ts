@@ -24,7 +24,8 @@ export function useAuth() {
         user: privyUser,
         ready,
         linkWallet,
-        unlinkWallet
+        unlinkWallet,
+        getAccessToken: privyGetAccessToken
     } = usePrivy();
 
     const { wallets } = useWallets();
@@ -41,6 +42,9 @@ export function useAuth() {
     // Get primary wallet address
     const primaryWallet = wallets.find(wallet => wallet.address === address) || wallets[0];
     const walletAddress = primaryWallet?.address || address || privyUser?.wallet?.address;
+
+    // Authenticate with backend and store JWT token
+
 
     const login = useCallback(async () => {
         setIsLoading(true);
@@ -63,6 +67,7 @@ export function useAuth() {
             await privyLogout();
             disconnect();
             setUserData(null);
+            
             router.push('/');
             toast.success('Successfully disconnected');
         } catch (error) {
@@ -95,17 +100,15 @@ export function useAuth() {
 
     // Get access token for API calls
     const getAccessToken = useCallback(async (): Promise<string | null> => {
-        if (!authenticated || !privyUser) return null;
-
         try {
-            // In a real implementation, you would get a JWT token from your backend
-            // For now, we'll use the Privy user ID as a placeholder
-            return privyUser.id;
+            // Use Privy's built-in getAccessToken method
+            const token = await privyGetAccessToken();
+            return token;
         } catch (error) {
-            console.error('Failed to get access token:', error);
+            console.error('Error getting access token:', error);
             return null;
         }
-    }, [authenticated, privyUser]);
+    }, [privyGetAccessToken]);
 
     // Update user profile
     const updateProfile = useCallback(async (updates: Partial<Pick<User, 'username' | 'avatar' | 'bio'>>) => {
@@ -179,6 +182,8 @@ export function useAuth() {
             checkExistingSession();
         }
     }, [ready, authenticated, isLoading]);
+
+
 
     // Effect to fetch user data when authenticated
     useEffect(() => {

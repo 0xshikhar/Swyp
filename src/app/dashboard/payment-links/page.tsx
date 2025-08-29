@@ -24,85 +24,68 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { useAuth } from '@/hooks/useAuth';
 
 // Mock data for payment links
-const mockPaymentLinks = [
-  {
-    id: 'pay_link_001',
-    amount: 299.99,
-    description: 'Premium Plan Subscription',
-    chainId: 1,
-    status: 'active',
-    createdAt: '2024-01-15T10:30:00Z',
-    expiresAt: '2024-01-22T10:30:00Z',
-    clicks: 15,
-    payments: 3,
-    totalPaid: 899.97,
-    metadata: {
-      orderId: 'ORD-2024-001'
-    }
-  },
-  {
-    id: 'pay_link_002',
-    amount: 49.99,
-    description: 'Digital Product Purchase',
-    chainId: 137,
-    status: 'active',
-    createdAt: '2024-01-14T15:45:00Z',
-    expiresAt: '2024-01-21T15:45:00Z',
-    clicks: 8,
-    payments: 1,
-    totalPaid: 49.99,
-    metadata: {
-      orderId: 'ORD-2024-002'
-    }
-  },
-  {
-    id: 'pay_link_003',
-    amount: 1299.00,
-    description: 'Enterprise License',
-    chainId: 8453,
-    status: 'expired',
-    createdAt: '2024-01-10T09:15:00Z',
-    expiresAt: '2024-01-13T09:15:00Z',
-    clicks: 25,
-    payments: 0,
-    totalPaid: 0,
-    metadata: {
-      orderId: 'ORD-2024-003'
-    }
-  },
-  {
-    id: 'pay_link_004',
-    amount: 99.99,
-    description: 'Monthly Subscription',
-    chainId: 1,
-    status: 'completed',
-    createdAt: '2024-01-12T14:20:00Z',
-    expiresAt: '2024-01-19T14:20:00Z',
-    clicks: 12,
-    payments: 5,
-    totalPaid: 499.95,
-    metadata: {
-      orderId: 'ORD-2024-004'
-    }
-  }
-];
+
 
 type PaymentLinkStatus = 'all' | 'active' | 'expired' | 'completed';
 
 export default function PaymentLinksPage() {
-  const [paymentLinks, setPaymentLinks] = useState(mockPaymentLinks);
+  const { getAccessToken } = useAuth();
+  const [paymentLinks, setPaymentLinks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<PaymentLinkStatus>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [baseUrl, setBaseUrl] = useState('');
 
+  // Fetch payment links from API
+  const fetchPaymentLinks = async () => {
+    try {
+      setLoading(true);
+      const token = await getAccessToken();
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const response = await fetch('/api/payment-links', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fetch payment links');
+      }
+
+      if (result.success) {
+        setPaymentLinks(result.data || []);
+      } else {
+        throw new Error(result.error || 'Failed to fetch payment links');
+      }
+    } catch (error) {
+      console.error('Error fetching payment links:', error);
+      toast.error('Failed to load payment links');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load payment links on component mount
+  useEffect(() => {
+    fetchPaymentLinks();
+  }, []);
+
   const filteredLinks = paymentLinks.filter(link => {
     const matchesSearch = 
       link.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       link.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      link.metadata.orderId?.toLowerCase().includes(searchTerm.toLowerCase());
+      link.metadata?.orderId?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || link.status === statusFilter;
     
@@ -149,15 +132,16 @@ export default function PaymentLinksPage() {
 
   const handlePaymentLinkCreated = (link: string) => {
     setShowCreateModal(false);
-    // Refresh the list or add the new link
+    // Refresh the payment links list to show the new one
+    fetchPaymentLinks();
     toast.success('Payment link created and added to your list');
   };
 
   const totalStats = {
     totalLinks: paymentLinks.length,
     activeLinks: paymentLinks.filter(l => l.status === 'active').length,
-    totalClicks: paymentLinks.reduce((sum, l) => sum + l.clicks, 0),
-    totalRevenue: paymentLinks.reduce((sum, l) => sum + l.totalPaid, 0)
+    totalClicks: paymentLinks.reduce((sum, l) => sum + (l.clicks || 0), 0),
+    totalRevenue: paymentLinks.reduce((sum, l) => sum + (l.totalPaid || 0), 0)
   };
 
   if (showCreateModal) {
@@ -309,7 +293,20 @@ export default function PaymentLinksPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredLinks.map((link) => (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8">
+                    Loading payment links...
+                  </TableCell>
+                </TableRow>
+              ) : filteredLinks.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8">
+                    No payment links found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredLinks.map((link) => (
                 <TableRow key={link.id}>
                   <TableCell>
                     <div>
@@ -331,10 +328,10 @@ export default function PaymentLinksPage() {
                   <TableCell>
                     {getStatusBadge(link.status)}
                   </TableCell>
-                  <TableCell>{link.clicks}</TableCell>
-                  <TableCell>{link.payments}</TableCell>
+                  <TableCell>{link.clicks || 0}</TableCell>
+                  <TableCell>{link.payments || 0}</TableCell>
                   <TableCell>
-                    <USDCAmount amount={link.totalPaid.toString()} />
+                    <USDCAmount amount={(link.totalPaid || 0).toString()} />
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">
@@ -377,35 +374,10 @@ export default function PaymentLinksPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                ))
+              )}
             </TableBody>
           </Table>
-          
-          {filteredLinks.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">No payment links found</p>
-              {searchTerm || statusFilter !== 'all' ? (
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setSearchTerm('');
-                    setStatusFilter('all');
-                  }}
-                  className="mt-2"
-                >
-                  Clear Filters
-                </Button>
-              ) : (
-                <Button 
-                  onClick={() => setShowCreateModal(true)}
-                  className="mt-2"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Payment Link
-                </Button>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

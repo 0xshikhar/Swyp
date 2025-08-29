@@ -8,12 +8,12 @@ import { ChainBadge } from '@/components/ui/chain-badge';
 import { NetworkStatus } from '@/components/ui/network-status';
 import { useAuth } from '@/hooks/use-auth';
 import { useWallet } from '@/hooks/use-wallet';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Users, 
-  CreditCard, 
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Users,
+  CreditCard,
   Activity,
   ArrowUpRight,
   ArrowDownRight,
@@ -64,12 +64,12 @@ export default function DashboardPage() {
   useAuth(); // Ensure user is authenticated
   const { usdcBalance, nativeBalance, chainId } = useWallet();
 
-  const StatCard = ({ 
-    title, 
-    value, 
-    change, 
-    icon: Icon, 
-    format = 'number' 
+  const StatCard = ({
+    title,
+    value,
+    change,
+    icon: Icon,
+    format = 'number'
   }: {
     title: string;
     value: number;
@@ -128,7 +128,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3">
           <NetworkStatus />
           <Button asChild>
-            <Link href="/dashboard/payments/new">
+            <Link href="/dashboard/payment-links">
               <Plus className="h-4 w-4 mr-2" />
               Create Payment Link
             </Link>
@@ -229,7 +229,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge 
+                    <Badge
                       variant={tx.status === 'completed' ? 'default' : 'secondary'}
                       className="text-xs"
                     >

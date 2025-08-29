@@ -11,11 +11,11 @@ import { USDCAmount } from '@/components/ui/usdc-amount';
 import { ChainBadge } from '@/components/ui/chain-badge';
 import { TransactionHash } from '@/components/ui/transaction-hash';
 import { CopyButton } from '@/components/ui/copy-button';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Download, 
+import {
+  Plus,
+  Search,
+  Filter,
+  Download,
   ExternalLink,
   Eye,
   MoreHorizontal
@@ -85,14 +85,14 @@ export default function PaymentsPage() {
   const [chainFilter, setChainFilter] = useState('all');
 
   const filteredPayments = mockPayments.filter(payment => {
-    const matchesSearch = 
+    const matchesSearch =
       payment.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
     const matchesChain = chainFilter === 'all' || payment.chainId.toString() === chainFilter;
-    
+
     return matchesSearch && matchesStatus && matchesChain;
   });
 
@@ -120,7 +120,7 @@ export default function PaymentsPage() {
           </p>
         </div>
         <Button asChild>
-          <Link href="/dashboard/payments/new">
+          <Link href="/dashboard/payment-links">
             <Plus className="h-4 w-4 mr-2" />
             Create Payment Link
           </Link>
@@ -258,8 +258,8 @@ export default function PaymentsPage() {
                     </TableCell>
                     <TableCell>
                       {payment.txHash ? (
-                        <TransactionHash 
-                          hash={payment.txHash} 
+                        <TransactionHash
+                          hash={payment.txHash}
                           chainId={payment.chainId}
                           showCopy={false}
                         />
@@ -291,7 +291,7 @@ export default function PaymentsPage() {
                           </DropdownMenuItem>
                           {payment.txHash && (
                             <DropdownMenuItem asChild>
-                              <a 
+                              <a
                                 href={`https://etherscan.io/tx/${payment.txHash}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
