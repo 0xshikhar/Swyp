@@ -5,20 +5,14 @@ import { z } from 'zod';
 
 const updateMerchantSchema = z.object({
   businessName: z.string().min(2).max(100).optional(),
-  businessDescription: z.string().min(10).max(500).optional(),
-  businessAddress: z.object({
-    street: z.string().min(5).max(200),
-    city: z.string().min(2).max(100),
-    state: z.string().min(2).max(100),
-    postalCode: z.string().min(3).max(20),
-    country: z.string().min(2).max(100),
-  }).optional(),
-  contactInfo: z.object({
-    email: z.string().email(),
-    phone: z.string().min(10).max(20),
-    website: z.string().url().optional(),
-  }).optional(),
-  expectedVolume: z.enum(['under_10k', '10k_50k', '50k_250k', '250k_1m', 'over_1m']).optional(),
+  category: z.string().optional(),
+  website: z.string().url().optional(),
+  email: z.string().email().optional(),
+  description: z.string().min(10).max(500).optional(),
+  logo: z.string().url().optional(),
+  preferredChainId: z.number().optional(),
+  rebalanceThreshold: z.number().min(0).max(1000000).optional(),
+  autoRebalance: z.boolean().optional(),
 });
 
 // Get merchant profile
@@ -32,10 +26,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const merchant = await prisma.merchant.findUnique({
+    const merchant = await prisma.merchant.findFirst({
       where: { userId: user.id },
       include: {
-        settings: true,
         _count: {
           select: {
             payments: true,
@@ -51,11 +44,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Calculate total volume (you might want to add date filters)
+    // Calculate total volume from completed payments
     const volumeStats = await prisma.payment.aggregate({
       where: {
         merchantId: merchant.id,
-        status: 'completed',
+        status: 'COMPLETED',
       },
       _sum: {
         amount: true,
@@ -67,20 +60,24 @@ export async function GET(request: NextRequest) {
       merchant: {
         id: merchant.id,
         businessName: merchant.businessName,
-        businessType: merchant.businessType,
-        businessDescription: merchant.businessDescription,
-        businessAddress: merchant.businessAddress,
-        contactInfo: merchant.contactInfo,
-        taxId: merchant.taxId,
-        expectedVolume: merchant.expectedVolume,
+        category: merchant.category,
+        website: merchant.website,
+        email: merchant.email,
+        description: merchant.description,
+        logo: merchant.logo,
         status: merchant.status,
-        kycStatus: merchant.kycStatus,
+        verificationDate: merchant.verificationDate,
+        riskScore: merchant.riskScore,
+        preferredChainId: merchant.preferredChainId,
+        rebalanceThreshold: merchant.rebalanceThreshold,
+        autoRebalance: merchant.autoRebalance,
+        totalTransactions: merchant.totalTransactions,
+        totalVolume: merchant.totalVolume,
         createdAt: merchant.createdAt,
         updatedAt: merchant.updatedAt,
-        settings: merchant.settings,
         stats: {
           totalPayments: merchant._count.payments,
-          totalVolume: volumeStats._sum.amount || 0,
+          calculatedVolume: volumeStats._sum.amount || 0,
         },
       },
     });
@@ -104,7 +101,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const merchant = await prisma.merchant.findUnique({
+    const merchant = await prisma.merchant.findFirst({
       where: { userId: user.id },
     });
 
@@ -115,32 +112,12 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Check if merchant can be updated (not during KYC review)
-    if (merchant.kycStatus === 'under_review') {
-      return NextResponse.json(
-        { success: false, error: 'Profile cannot be updated during KYC review' },
-        { status: 400 }
-      );
-    }
-
     const body = await request.json();
     const updateData = updateMerchantSchema.parse(body);
 
-    // If critical information is updated, reset KYC status
-    const criticalFields = ['businessName', 'businessAddress', 'taxId'];
-    const shouldResetKyc = criticalFields.some(field => 
-      updateData[field as keyof typeof updateData] !== undefined
-    );
-
     const updatedMerchant = await prisma.merchant.update({
       where: { id: merchant.id },
-      data: {
-        ...updateData,
-        ...(shouldResetKyc && merchant.kycStatus === 'approved' ? {
-          kycStatus: 'pending_review',
-          status: 'pending_verification'
-        } : {}),
-      },
+      data: updateData,
     });
 
     return NextResponse.json({
@@ -148,20 +125,22 @@ export async function PUT(request: NextRequest) {
       merchant: {
         id: updatedMerchant.id,
         businessName: updatedMerchant.businessName,
-        businessType: updatedMerchant.businessType,
-        businessDescription: updatedMerchant.businessDescription,
-        businessAddress: updatedMerchant.businessAddress,
-        contactInfo: updatedMerchant.contactInfo,
-        taxId: updatedMerchant.taxId,
-        expectedVolume: updatedMerchant.expectedVolume,
+        category: updatedMerchant.category,
+        website: updatedMerchant.website,
+        email: updatedMerchant.email,
+        description: updatedMerchant.description,
+        logo: updatedMerchant.logo,
         status: updatedMerchant.status,
-        kycStatus: updatedMerchant.kycStatus,
+        verificationDate: updatedMerchant.verificationDate,
+        riskScore: updatedMerchant.riskScore,
+        preferredChainId: updatedMerchant.preferredChainId,
+        rebalanceThreshold: updatedMerchant.rebalanceThreshold,
+        autoRebalance: updatedMerchant.autoRebalance,
+        totalTransactions: updatedMerchant.totalTransactions,
+        totalVolume: updatedMerchant.totalVolume,
         createdAt: updatedMerchant.createdAt,
         updatedAt: updatedMerchant.updatedAt,
       },
-      ...(shouldResetKyc ? {
-        message: 'Profile updated. KYC re-verification may be required for critical changes.'
-      } : {}),
     });
   } catch (error) {
     console.error('Merchant profile update error:', error);

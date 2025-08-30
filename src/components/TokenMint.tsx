@@ -21,7 +21,6 @@ function TokenMint() {
     const [tokenPrice, setTokenPrice] = useState<number>(0);
 
     const { address, isConnected } = useAccount();
-    const { isAuthenticated } = useAuth();
 
     // Reset states when transaction completes
     const resetStates = () => {
@@ -73,7 +72,7 @@ function TokenMint() {
         });
 
     // Add this near the top of your component to handle disabled states better
-    console.log("isConnected", isConnected, "isAuthenticated", isAuthenticated, "isPending", isPending, "isConfirming", isConfirming, "remainingAllowance", remainingAllowance);
+    console.log("isConnected", isConnected, "isAuthenticated", "isPending", isPending, "isConfirming", isConfirming, "remainingAllowance", remainingAllowance);
     const isDisabled = !isConnected || isPending || isConfirming || Number(remainingAllowance || 0) <= 0;
 
     console.log("isDisabled", isDisabled);
@@ -134,12 +133,11 @@ function TokenMint() {
         console.log("Mint state:", {
             address,
             isConnected,
-            isAuthenticated,
             remainingAllowance: Number(remainingAllowance || 0),
             mintPrice,
             amount
         });
-    }, [address, isConnected, isAuthenticated, remainingAllowance, mintPrice, amount]);
+    }, [address, isConnected, remainingAllowance, mintPrice, amount]);
 
     return (
         <div className="container max-w-4xl py-8">

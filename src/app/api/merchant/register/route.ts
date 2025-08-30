@@ -5,25 +5,14 @@ import { z } from 'zod';
 
 const merchantRegistrationSchema = z.object({
   businessName: z.string().min(2).max(100),
-  businessType: z.enum(['individual', 'corporation', 'partnership', 'llc', 'other']),
-  businessDescription: z.string().min(10).max(500),
-  businessAddress: z.object({
-    street: z.string().min(5).max(200),
-    city: z.string().min(2).max(100),
-    state: z.string().min(2).max(100),
-    postalCode: z.string().min(3).max(20),
-    country: z.string().min(2).max(100),
-  }),
-  contactInfo: z.object({
-    email: z.string().email(),
-    phone: z.string().min(10).max(20),
-    website: z.string().url().optional(),
-  }),
-  taxId: z.string().min(9).max(20).optional(),
-  expectedVolume: z.enum(['under_10k', '10k_50k', '50k_250k', '250k_1m', 'over_1m']),
-  acceptedTerms: z.boolean().refine(val => val === true, {
-    message: 'Terms and conditions must be accepted'
-  }),
+  category: z.string().min(2).max(50),
+  website: z.string().url().optional(),
+  email: z.string().email(),
+  description: z.string().min(10).max(500),
+  logo: z.string().url().optional(),
+  preferredChainId: z.number().default(1), // Default to Ethereum mainnet
+  rebalanceThreshold: z.number().min(0).max(1000000).default(10000), // Default $10k threshold
+  autoRebalance: z.boolean().default(true),
 });
 
 export async function POST(request: NextRequest) {
@@ -36,51 +25,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already has a merchant profile
-    const existingMerchant = await prisma.merchant.findUnique({
+    // Check if merchant already exists for this user
+    const existingMerchant = await prisma.merchant.findFirst({
       where: { userId: user.id },
     });
 
     if (existingMerchant) {
       return NextResponse.json(
-        { success: false, error: 'Merchant profile already exists' },
-        { status: 400 }
+        {
+          success: false,
+          error: 'Merchant profile already exists for this user',
+        },
+        { status: 409 }
       );
     }
 
     const body = await request.json();
     const merchantData = merchantRegistrationSchema.parse(body);
 
-    // Create merchant profile
+    // Create new merchant
     const merchant = await prisma.merchant.create({
       data: {
         userId: user.id,
         businessName: merchantData.businessName,
-        businessType: merchantData.businessType,
-        businessDescription: merchantData.businessDescription,
-        businessAddress: merchantData.businessAddress,
-        contactInfo: merchantData.contactInfo,
-        taxId: merchantData.taxId,
-        expectedVolume: merchantData.expectedVolume,
-        status: 'pending_verification',
-        kycStatus: 'not_started',
-        acceptedTermsAt: new Date(),
-      },
-    });
-
-    // Create initial merchant settings
-    await prisma.merchantSettings.create({
-      data: {
-        merchantId: merchant.id,
-        paymentMethods: ['usdc'],
-        autoSettle: true,
-        settlementDelay: 24, // hours
-        webhookUrl: null,
-        notificationPreferences: {
-          email: true,
-          sms: false,
-          webhook: false,
-        },
+        category: merchantData.category,
+        website: merchantData.website,
+        email: merchantData.email,
+        description: merchantData.description,
+        logo: merchantData.logo,
+        status: 'ACTIVE',
+        preferredChainId: merchantData.preferredChainId,
+        rebalanceThreshold: merchantData.rebalanceThreshold,
+        autoRebalance: merchantData.autoRebalance,
+        riskScore: 0.5, // Default medium risk score
+        totalTransactions: 0,
+        totalVolume: 0,
       },
     });
 
@@ -89,15 +68,21 @@ export async function POST(request: NextRequest) {
       merchant: {
         id: merchant.id,
         businessName: merchant.businessName,
+        category: merchant.category,
+        website: merchant.website,
+        email: merchant.email,
+        description: merchant.description,
+        logo: merchant.logo,
         status: merchant.status,
-        kycStatus: merchant.kycStatus,
+        preferredChainId: merchant.preferredChainId,
+        rebalanceThreshold: merchant.rebalanceThreshold,
+        autoRebalance: merchant.autoRebalance,
         createdAt: merchant.createdAt,
       },
-      message: 'Merchant registration successful. KYC verification will be initiated shortly.',
     });
   } catch (error) {
     console.error('Merchant registration error:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
@@ -110,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: false, error: 'Registration failed' },
+      { success: false, error: 'Failed to register merchant' },
       { status: 500 }
     );
   }

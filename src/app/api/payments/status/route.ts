@@ -41,20 +41,23 @@ export async function GET(request: NextRequest) {
 
     // If payment is processing and has a message hash, check CCTP status
     let cctpStatus = null;
-    if (payment.status === 'processing' && payment.messageHash && payment.fromChain !== payment.toChain) {
+    if (payment.status === 'PROCESSING' && payment.cctpMessageHash && payment.sourceChainId !== payment.destinationChainId) {
       try {
-        cctpStatus = await cctpService.getTransferStatus(payment.messageHash, payment.toChain);
-        
+        // Note: cctpService expects string chain names, need to map chainId to chain name
+        const chainMap: Record<number, 'ethereum' | 'polygon' | 'base'> = { 1: 'ethereum', 137: 'polygon', 8453: 'base' };
+        const chainName = chainMap[payment.destinationChainId] || 'ethereum';
+        cctpStatus = await cctpService.getTransferStatus(payment.cctpMessageHash, chainName);
+
         // Update payment status if CCTP status has changed
-        if (cctpStatus === 'completed' && payment.status !== 'completed') {
+        if (cctpStatus === 'completed' && payment.status === 'PROCESSING') {
           await prisma.payment.update({
             where: { id: paymentId },
             data: {
-              status: 'completed',
+              status: 'COMPLETED',
               completedAt: new Date(),
             },
           });
-          
+
           // Refresh payment data
           const updatedPayment = await prisma.payment.findUnique({
             where: { id: paymentId },
@@ -67,7 +70,7 @@ export async function GET(request: NextRequest) {
               },
             },
           });
-          
+
           if (updatedPayment) {
             Object.assign(payment, updatedPayment);
           }
@@ -80,25 +83,24 @@ export async function GET(request: NextRequest) {
     // Calculate progress percentage
     let progressPercentage = 0;
     switch (payment.status) {
-      case 'pending':
+      case 'PENDING':
         progressPercentage = 10;
         break;
-      case 'processing':
-        progressPercentage = payment.fromChain !== payment.toChain ? 50 : 90;
+      case 'PROCESSING':
+        progressPercentage = payment.sourceChainId !== payment.destinationChainId ? 50 : 90;
         break;
-      case 'completed':
+      case 'COMPLETED':
         progressPercentage = 100;
         break;
-      case 'failed':
-      case 'expired':
-        progressPercentage = 0;
+      case 'FAILED':
+        // EXPIRED status doesn't exist in schema, removing
         break;
     }
 
     // Determine estimated completion time
     let estimatedCompletion = null;
-    if (payment.status === 'processing') {
-      const processingTime = payment.fromChain !== payment.toChain ? 15 : 2; // minutes
+    if (payment.status === 'PROCESSING') {
+      const processingTime = payment.sourceChainId !== payment.destinationChainId ? 15 : 2; // minutes
       estimatedCompletion = new Date(Date.now() + processingTime * 60 * 1000);
     }
 
@@ -108,18 +110,13 @@ export async function GET(request: NextRequest) {
         id: payment.id,
         amount: payment.amount,
         currency: payment.currency,
-        fromChain: payment.fromChain,
-        toChain: payment.toChain,
-        recipient: payment.recipient,
-        description: payment.description,
-        status: payment.status,
-        progressPercentage,
-        feeAmount: payment.feeAmount,
-        netAmount: payment.netAmount,
-        transactionHash: payment.transactionHash,
-        messageHash: payment.messageHash,
-        attestationHash: payment.attestationHash,
-        senderAddress: payment.senderAddress,
+        sourceChainId: payment.sourceChainId,
+        destinationChainId: payment.destinationChainId,
+        // Transaction details
+        platformFee: payment.platformFee,
+        sourceTxHash: payment.sourceTxHash,
+        destinationTxHash: payment.destinationTxHash,
+        cctpMessageHash: payment.cctpMessageHash,
         failureReason: payment.failureReason,
         createdAt: payment.createdAt,
         completedAt: payment.completedAt,
@@ -128,7 +125,7 @@ export async function GET(request: NextRequest) {
           businessName: payment.merchant.businessName,
           status: payment.merchant.status,
         },
-        metadata: payment.metadata,
+        // metadata field doesn't exist in schema
         cctpStatus,
       },
     });
@@ -155,7 +152,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Validate status
-    const validStatuses = ['pending', 'processing', 'completed', 'failed', 'expired'];
+    const validStatuses = ['PENDING', 'PROCESSING', 'FAILED', 'REFUNDED'];
     if (status && !validStatuses.includes(status)) {
       return NextResponse.json(
         { success: false, error: 'Invalid status' },
@@ -182,9 +179,9 @@ export async function PUT(request: NextRequest) {
     if (messageHash) updateData.messageHash = messageHash;
     if (attestationHash) updateData.attestationHash = attestationHash;
     if (failureReason) updateData.failureReason = failureReason;
-    
+
     // Set completion time if status is completed
-    if (status === 'completed' && !payment.completedAt) {
+    if (status === 'COMPLETED' && !payment.completedAt) {
       updateData.completedAt = new Date();
     }
 
@@ -199,9 +196,9 @@ export async function PUT(request: NextRequest) {
       payment: {
         id: updatedPayment.id,
         status: updatedPayment.status,
-        transactionHash: updatedPayment.transactionHash,
-        messageHash: updatedPayment.messageHash,
-        attestationHash: updatedPayment.attestationHash,
+        sourceTxHash: updatedPayment.sourceTxHash,
+        destinationTxHash: updatedPayment.destinationTxHash,
+        cctpMessageHash: updatedPayment.cctpMessageHash,
         completedAt: updatedPayment.completedAt,
         updatedAt: updatedPayment.updatedAt,
       },

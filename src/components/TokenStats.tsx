@@ -12,7 +12,6 @@ export default function TokenMintPage() {
     const [amount, setAmount] = useState<number>(1);
 
     const { address, isConnected } = useAccount();
-    const { isAuthenticated } = useAuth();
 
     // Read contract data
     const { data: mintPrice } = useReadContract({
@@ -58,12 +57,11 @@ export default function TokenMintPage() {
         console.log("Mint state:", {
             address,
             isConnected,
-            isAuthenticated,
             remainingAllowance: Number(remainingAllowance || 0),
             mintPrice,
             amount
         });
-    }, [address, isConnected, isAuthenticated, remainingAllowance, mintPrice, amount]);
+    }, [address, isConnected, remainingAllowance, mintPrice, amount]);
 
     return (
         <div className="container max-w-4xl py-2">

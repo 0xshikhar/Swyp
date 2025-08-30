@@ -35,11 +35,11 @@ export interface JwtPayload {
 export interface AuthUser {
     id: string;
     walletAddress: string;
-    username?: string;
-    bio?: string;
-    avatar?: string;
+    username: string | null;
+    bio: string | null;
+    avatar: string | null;
     createdAt: Date;
-    lastLoginAt: Date;
+    lastLoginAt: Date | null;
 }
 
 // Generate a JWT token

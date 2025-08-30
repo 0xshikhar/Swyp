@@ -10,12 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { USDCAmount } from '@/components/ui/usdc-amount';
 import { ChainBadge } from '@/components/ui/chain-badge';
 import { CreatePaymentLink } from '@/components/payment/create-payment-link';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Copy, 
-  ExternalLink, 
+import {
+  Plus,
+  Search,
+  Filter,
+  Copy,
+  ExternalLink,
   MoreHorizontal,
   Eye,
   Trash2,
@@ -82,13 +82,13 @@ export default function PaymentLinksPage() {
   }, []);
 
   const filteredLinks = paymentLinks.filter(link => {
-    const matchesSearch = 
+    const matchesSearch =
       link.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       link.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       link.metadata?.orderId?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesStatus = statusFilter === 'all' || link.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -98,7 +98,7 @@ export default function PaymentLinksPage() {
       expired: 'secondary',
       completed: 'outline'
     } as const;
-    
+
     return (
       <Badge variant={variants[status as keyof typeof variants] || 'default'}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -154,14 +154,14 @@ export default function PaymentLinksPage() {
               Generate a secure payment link to collect USDC payments
             </p>
           </div>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => setShowCreateModal(false)}
           >
             Back to Payment Links
           </Button>
         </div>
-        
+
         <CreatePaymentLink onPaymentLinkCreated={handlePaymentLinkCreated} />
       </div>
     );
@@ -196,7 +196,7 @@ export default function PaymentLinksPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -208,7 +208,7 @@ export default function PaymentLinksPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -220,7 +220,7 @@ export default function PaymentLinksPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -307,73 +307,73 @@ export default function PaymentLinksPage() {
                 </TableRow>
               ) : (
                 filteredLinks.map((link) => (
-                <TableRow key={link.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{link.description}</p>
-                      <p className="text-sm text-muted-foreground">{link.id}</p>
-                      {link.metadata.orderId && (
-                        <p className="text-xs text-muted-foreground">
-                          Order: {link.metadata.orderId}
+                  <TableRow key={link.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{link.description}</p>
+                        <p className="text-sm text-muted-foreground">{link.id}</p>
+                        {link.metadata.orderId && (
+                          <p className="text-xs text-muted-foreground">
+                            Order: {link.metadata.orderId}
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <USDCAmount amount={link.amount.toString()} />
+                    </TableCell>
+                    <TableCell>
+                      <ChainBadge chainId={link.chainId} />
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(link.status)}
+                    </TableCell>
+                    <TableCell>{link.clicks || 0}</TableCell>
+                    <TableCell>{link.payments || 0}</TableCell>
+                    <TableCell>
+                      <USDCAmount amount={(link.totalPaid || 0).toString()} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <p>{new Date(link.createdAt).toLocaleDateString()}</p>
+                        <p className="text-muted-foreground">
+                          Expires: {new Date(link.expiresAt).toLocaleDateString()}
                         </p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <USDCAmount amount={link.amount.toString()} />
-                  </TableCell>
-                  <TableCell>
-                    <ChainBadge chainId={link.chainId} />
-                  </TableCell>
-                  <TableCell>
-                    {getStatusBadge(link.status)}
-                  </TableCell>
-                  <TableCell>{link.clicks || 0}</TableCell>
-                  <TableCell>{link.payments || 0}</TableCell>
-                  <TableCell>
-                    <USDCAmount amount={(link.totalPaid || 0).toString()} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      <p>{new Date(link.createdAt).toLocaleDateString()}</p>
-                      <p className="text-muted-foreground">
-                        Expires: {new Date(link.expiresAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => copyToClipboard(getPaymentLinkUrl(link.id))}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        asChild
-                      >
-                        <a 
-                          href={getPaymentLinkUrl(link.id)} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(getPaymentLinkUrl(link.id))}
                         >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleDeleteLink(link.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          asChild
+                        >
+                          <a
+                            href={getPaymentLinkUrl(link.id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteLink(link.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
             </TableBody>
